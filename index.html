@@ -187,6 +187,9 @@ function scoreBar(){
 function stepsBar(){
   return `<div class="steps">${[1,2,3].map(n=>`<i class="${S.step>=n?'on':''}"></i>`).join("")}</div>`;
 }
+function miniBtn(cls,act,icon,label,note){
+  return `<button class="btn ${cls}" style="margin:6px 0;padding:14px 8px;font-size:16px;gap:4px" data-act="${act}"><div class="ic" style="width:40px;height:40px;font-size:18px">${icon}</div>${label}<span style="font-size:12px;font-weight:400;opacity:.85">${note}</span></button>`;
+}
 function slowChip(){
   return `<div class="chips" style="justify-content:center;margin-top:-4px"><div class="chip ${S.slow?'on':''}" data-act="slow">🐢 Slow-mo reverse ${S.slow?'on':'off'}</div></div>`;
 }
@@ -282,8 +285,9 @@ function render(){
       body = `<div class="card" style="text-align:center"><div class="big-emoji">${S.lastWin?'🎉':'😅'}</div>
         <div class="cat">${esc(S.cat)}</div><div class="phrase">${esc(S.phrase)}</div>
         <p class="sub">${!S.lastWin?"No point this time.":S.solo?`+1 to ${esc(S.teams[S.lastBy])} for guessing, +1 to ${team()} for performing!`:`+1 point to ${team()}!`}</p></div>`+
-        playBtn("blue","playO","▶","Hear the original",false)+
-        playBtn("purple","playMR","🔁","Hear the guess clue again",false)+
+        `<p class="sub" style="margin:14px 0 0">Replay the round</p>
+        <div class="row">${miniBtn("blue","playO","▶","1. Original","Said normally")}${miniBtn("green","playOR","⏪","2. Original reversed","What they had to copy")}</div>
+        <div class="row">${miniBtn("red","playM","🎙️","3. The copy","As recorded")}${miniBtn("purple","playMR","🔁","4. Copy flipped back","The clue you heard")}</div>`+
         `<button class="btn small yellow" data-act="next">${S.solo?'Next player':'Next team'} →</button>`;
     }
     a.innerHTML = header+scoreBar()+body;
@@ -373,6 +377,7 @@ document.addEventListener("click",e=>{
     case "slow": S.slow=!S.slow; break;
     case "skip": newTurn(); S.screen="play"; S.step=1; S.revealed=true; break;
     case "playMR": if(S.mimicRev) play(S.mimicRev); return;
+    case "playM": if(S.mimic) play(S.mimic); return;
     case "playFreeO": if(S.free.orig) play(S.free.orig); return;
     case "playFreeR": if(S.free.rev) play(S.free.rev); return;
     case "toMimic": stopPlay(); S.step=2; S.revealed=false; break;
