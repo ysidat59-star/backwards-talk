@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#14112b">
+<title>Backwards Talk</title>
+<style>
+  :root{
+    --bg:#14112b; --card:#211c45; --ink:#fff; --muted:#a9a3d6;
+    --red:#e5383b; --blue:#2f7cf6; --green:#2fb46a; --yellow:#ffc93c; --purple:#8b5cf6;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  body{min-height:100vh;display:flex;justify-content:center}
+  #app{width:100%;max-width:520px;padding:18px 16px 40px}
+  h1{font-size:30px;margin:6px 0 2px;text-align:center;letter-spacing:.5px}
+  h1 span{display:inline-block;transform:scaleX(-1)}
+  h2{font-size:22px;margin:0 0 10px;text-align:center}
+  p{line-height:1.45}
+  .sub{color:var(--muted);text-align:center;margin:0 0 18px;font-size:15px}
+  .card{background:var(--card);border-radius:20px;padding:18px;margin:12px 0}
+  .btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:100%;
+       border:0;border-radius:20px;padding:22px 14px;margin:12px 0;font-size:21px;font-weight:600;color:#fff;cursor:pointer;
+       box-shadow:0 0 0 5px rgba(255,255,255,.12) inset;transition:transform .08s,opacity .2s}
+  .btn:active{transform:scale(.97)}
+  .btn:disabled{opacity:.35}
+  .btn .ic{width:54px;height:54px;border-radius:50%;background:rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;font-size:24px}
+  .small{padding:14px;font-size:17px}
+  .red{background:var(--red)} .blue{background:var(--blue)} .green{background:var(--green)}
+  .purple{background:var(--purple)} .grey{background:#3a3466} .yellow{background:var(--yellow);color:#1b1640}
+  .rec{animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 5px rgba(255,255,255,.12) inset,0 0 0 0 rgba(229,56,59,.7)}50%{box-shadow:0 0 0 5px rgba(255,255,255,.12) inset,0 0 0 14px rgba(229,56,59,0)}}
+  .row{display:flex;gap:10px} .row>*{flex:1}
+  input[type=text],select{width:100%;padding:13px;border-radius:12px;border:2px solid #3a3466;background:#18143a;color:#fff;font-size:17px;margin:6px 0 12px}
+  label{font-size:14px;color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 12px}
+  .chip{padding:9px 13px;border-radius:999px;background:#18143a;border:2px solid #3a3466;font-size:15px;cursor:pointer;user-select:none}
+  .chip.on{background:var(--purple);border-color:var(--purple)}
+  .phrase{font-size:30px;font-weight:800;text-align:center;margin:8px 0;line-height:1.2}
+  .cat{text-align:center;color:var(--yellow);font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:13px}
+  .hidden-card{background:repeating-linear-gradient(45deg,#2a2457,#2a2457 12px,#241f4c 12px,#241f4c 24px);border-radius:16px;padding:30px;text-align:center;color:var(--muted);cursor:pointer}
+  .steps{display:flex;gap:6px;justify-content:center;margin:4px 0 14px}
+  .steps i{width:34px;height:6px;border-radius:3px;background:#3a3466}
+  .steps i.on{background:var(--yellow)}
+  .score{display:flex;gap:10px;margin:8px 0}
+  .score div{flex:1;background:var(--card);border-radius:16px;padding:12px;text-align:center;border:3px solid transparent}
+  .score div.turn{border-color:var(--yellow)}
+  .score b{display:block;font-size:30px}
+  .score span{font-size:14px;color:var(--muted)}
+  .timer{font-size:15px;color:var(--muted);text-align:center;min-height:20px}
+  .link{background:none;border:0;color:var(--muted);text-decoration:underline;font-size:15px;width:100%;padding:10px;cursor:pointer}
+  .err{background:#4a1d2a;border-radius:14px;padding:14px;margin:12px 0;font-size:15px}
+  .tabs{display:flex;background:var(--card);border-radius:14px;padding:4px;margin:10px 0 6px}
+  .tabs button{flex:1;border:0;background:none;color:var(--muted);padding:11px;font-size:16px;font-weight:600;border-radius:10px}
+  .tabs button.on{background:var(--purple);color:#fff}
+  .big-emoji{font-size:64px;text-align:center;margin:6px 0}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ---------------- Word bank ---------------- */
+const BANK = {
+  "Celebrities": ["David Beckham","Gordon Ramsay","Taylor Swift","Ed Sheeran","Harry Styles","Adele","Lionel Messi","Cristiano Ronaldo","Marcus Rashford","Mo Salah","Kim Kardashian","Dwayne Johnson","Tom Cruise","Beyoncé","Rihanna","Drake","Stormzy","KSI","Simon Cowell","David Attenborough","Oprah Winfrey","Elon Musk","Lewis Hamilton","Emma Watson","Daniel Radcliffe","Kanye West","Snoop Dogg","Mr Bean","Jeremy Clarkson","Billie Eilish","Dua Lipa","Holly Willoughby","Gary Lineker","Ant and Dec","Bruno Mars","Will Smith","Leonardo DiCaprio","Jamie Oliver","Usain Bolt","Mr Beast"],
+  "Phrases": ["Happy birthday","I love you","See you later","What's for dinner","Put the kettle on","It's raining cats and dogs","Easy peasy lemon squeezy","Don't be a muppet","Fancy a cuppa","Break a leg","Piece of cake","Bob's your uncle","Once upon a time","Hello my name is","Where are my keys","Are we there yet","Good morning everyone","I need a holiday","Better late than never","Time for bed","Not my problem","You're having a laugh","Cheers mate","Who let the dogs out","Keep calm and carry on","Pardon my French","The early bird catches the worm","Shut the front door","Back in a minute","Winner winner chicken dinner"],
+  "Films & TV": ["Harry Potter","The Lion King","Star Wars","Toy Story","Finding Nemo","Jurassic Park","Frozen","Spider-Man","The Simpsons","Peaky Blinders","Only Fools and Horses","Love Island","EastEnders","Coronation Street","Doctor Who","Shrek","Titanic","Home Alone","Mean Girls","Stranger Things","The Office","Breaking Bad","Gavin and Stacey","Top Gear","Bake Off","Strictly Come Dancing","The Godfather","Mission Impossible","Fast and Furious","Pirates of the Caribbean"],
+  "Food & Drink": ["Fish and chips","Spaghetti bolognese","Chicken tikka masala","Sunday roast","Full English breakfast","Cheese on toast","Beans on toast","Chocolate milkshake","Strawberry jam","Peanut butter","Pepperoni pizza","Chicken nuggets","Sticky toffee pudding","Bacon sandwich","Mashed potato","Ice cream sundae","Prawn cocktail crisps","Jaffa cakes","Mango lassi","Cup of tea"],
+  "Animals": ["Elephant","Crocodile","Hippopotamus","Kangaroo","Giraffe","Penguin","Octopus","Chimpanzee","Rhinoceros","Flamingo","Hedgehog","Butterfly","Jellyfish","Polar bear","Golden retriever","Guinea pig","Peacock","Tarantula","Woodpecker","Killer whale"],
+  "Places": ["Blackburn","Manchester","London","Blackpool Tower","Big Ben","New York","Paris","Disneyland","Buckingham Palace","Old Trafford","Mount Everest","The Eiffel Tower","Australia","Las Vegas","Stonehenge","Lake District","Dubai","Hollywood","Amazon rainforest","Liverpool"]
+};
+
+/* ---------------- Audio engine ---------------- */
+let actx = null;
+function ctx(){ if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==="suspended") actx.resume(); return actx; }
+
+let stream=null, recorder=null, chunks=[], recStart=0, recTimer=null, playing=null;
+
+async function startRecording(onTick){
+  ctx();
+  if(!stream){
+    stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+  }
+  chunks=[];
+  const types=["audio/webm;codecs=opus","audio/webm","audio/mp4","audio/ogg"];
+  const mt = types.find(t=>window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t));
+  recorder = new MediaRecorder(stream, mt?{mimeType:mt}:undefined);
+  recorder.ondataavailable = e=>{ if(e.data.size) chunks.push(e.data); };
+  recorder.start();
+  recStart=Date.now();
+  recTimer=setInterval(()=>onTick&&onTick((Date.now()-recStart)/1000),100);
+}
+function stopRecording(){
+  return new Promise((resolve,reject)=>{
+    if(!recorder) return reject(new Error("Not recording"));
+    clearInterval(recTimer);
+    recorder.onstop = async ()=>{
+      try{
+        const blob = new Blob(chunks,{type:recorder.mimeType||"audio/webm"});
+        const buf = await blob.arrayBuffer();
+        const audio = await ctx().decodeAudioData(buf);
+        resolve(audio);
+      }catch(e){ reject(e); }
+    };
+    recorder.stop();
+  });
+}
+function reverseBuffer(b){
+  const out = ctx().createBuffer(b.numberOfChannels,b.length,b.sampleRate);
+  for(let c=0;c<b.numberOfChannels;c++){
+    const src=b.getChannelData(c), dst=out.getChannelData(c);
+    for(let i=0,n=src.length;i<n;i++) dst[i]=src[n-1-i];
+  }
+  return out;
+}
+function play(buffer, onEnd){
+  stopPlay();
+  const s = ctx().createBufferSource();
+  s.buffer = buffer; s.connect(ctx().destination);
+  s.onended = ()=>{ if(playing===s){ playing=null; onEnd&&onEnd(); } };
+  s.start(); playing = s;
+}
+function stopPlay(){ if(playing){ const p=playing; playing=null; try{p.stop()}catch(e){} } }
+
+/* ---------------- State ---------------- */
+const S = {
+  mode:"game",
+  teams:["Team 1","Team 2"], scores:[0,0], turn:0, target:10,
+  cats:new Set(Object.keys(BANK)), used:new Set(),
+  phrase:null, cat:null, revealed:false,
+  step:0, // 0 card, 1 record original, 2 record mimic, 3 guess, 4 result
+  original:null, originalRev:null, mimic:null, mimicRev:null,
+  recording:null, // which slot is recording
+  secs:0, error:null, screen:"setup", free:{orig:null,rev:null}
+};
+
+function pickPhrase(){
+  const pool=[];
+  S.cats.forEach(c=>BANK[c].forEach(p=>{ if(!S.used.has(p)) pool.push([c,p]); }));
+  if(!pool.length){ S.used.clear(); return pickPhrase(); }
+  const [c,p]=pool[Math.floor(Math.random()*pool.length)];
+  S.used.add(p); S.phrase=p; S.cat=c;
+}
+function newTurn(){
+  stopPlay();
+  pickPhrase(); S.revealed=false; S.step=0;
+  S.original=S.originalRev=S.mimic=S.mimicRev=null; S.error=null;
+  S.screen="handoff";
+}
+
+/* ---------------- Rendering ---------------- */
+const $ = id=>document.getElementById(id);
+const esc = s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const team = ()=>esc(S.teams[S.turn]);
+
+function scoreBar(){
+  return `<div class="score">${S.teams.map((t,i)=>`<div class="${i===S.turn?'turn':''}"><span>${esc(t)}</span><b>${S.scores[i]}</b></div>`).join("")}</div>`;
+}
+function stepsBar(){
+  return `<div class="steps">${[1,2,3].map(n=>`<i class="${S.step>=n?'on':''}"></i>`).join("")}</div>`;
+}
+function errBox(){ return S.error?`<div class="err">${S.error}</div>`:""; }
+
+function recBtn(slot,label){
+  const on = S.recording===slot;
+  return `<button class="btn red ${on?'rec':''}" data-act="rec" data-slot="${slot}">
+    <div class="ic">${on?'■':'🎙️'}</div>${on?`Stop (${S.secs.toFixed(1)}s)`:label}</button>`;
+}
+function playBtn(cls,act,icon,label,disabled){
+  return `<button class="btn ${cls}" data-act="${act}" ${disabled?'disabled':''}><div class="ic">${icon}</div>${label}</button>`;
+}
+
+function render(){
+  const a=$("app");
+  const header = `<h1>Backwards <span>Talk</span></h1>`;
+  const tabs = `<div class="tabs"><button class="${S.mode==='game'?'on':''}" data-act="mode" data-m="game">Game</button><button class="${S.mode==='free'?'on':''}" data-act="mode" data-m="free">Free play</button></div>`;
+
+  if(S.mode==="free"){
+    a.innerHTML = header+tabs+`<p class="sub">Record anything, then hear it backwards.</p>`+errBox()+
+      recBtn("free", S.free.orig?"Record again":"Start Recording")+
+      playBtn("blue","playFreeO","▶","Play Original",!S.free.orig)+
+      playBtn("green","playFreeR","⏪","Play Reverse",!S.free.orig);
+    return;
+  }
+
+  if(S.screen==="setup"){
+    a.innerHTML = header+tabs+`<p class="sub">Say it. Flip it. Copy it. Flip it back. Guess it!</p>
+    <div class="card">
+      <label>Team names</label>
+      <div class="row"><input type="text" id="t0" value="${esc(S.teams[0])}"><input type="text" id="t1" value="${esc(S.teams[1])}"></div>
+      <label>First to</label>
+      <select id="target">${[5,10,15,20].map(n=>`<option ${n===S.target?'selected':''}>${n}</option>`).join("")}</select>
+      <label>Categories</label>
+      <div class="chips">${Object.keys(BANK).map(c=>`<div class="chip ${S.cats.has(c)?'on':''}" data-act="cat" data-c="${esc(c)}">${esc(c)}</div>`).join("")}</div>
+    </div>
+    <div class="card" style="font-size:15px;color:var(--muted)">
+      <b style="color:#fff">How to play</b><br>
+      1. The performer secretly reads the card and records it normally.<br>
+      2. Listen to it backwards, then record yourself copying the backwards sound.<br>
+      3. Your teammate hears your copy flipped back the right way round — and guesses!
+    </div>
+    <button class="btn yellow" data-act="start"><div class="ic">🎲</div>Start game</button>`;
+    return;
+  }
+
+  if(S.screen==="handoff"){
+    a.innerHTML = header+scoreBar()+`<div class="card" style="text-align:center">
+      <div class="big-emoji">🤫</div>
+      <h2>${team()}'s turn</h2>
+      <p class="sub">Pick a performer. Only they look at the screen — teammates, look away!</p>
+      </div>
+      <button class="btn purple" data-act="go"><div class="ic">👀</div>I'm the performer</button>
+      <button class="link" data-act="menu">Back to setup</button>`;
+    return;
+  }
+
+  if(S.screen==="play"){
+    let body="";
+    const card = S.revealed
+      ? `<div class="card"><div class="cat">${esc(S.cat)}</div><div class="phrase">${esc(S.phrase)}</div>
+         <button class="link" data-act="hide">Hide card</button></div>`
+      : `<div class="hidden-card" data-act="show">Tap to show the secret card</div>`;
+
+    if(S.step===0 || S.step===1){
+      S.step = 1;
+      body = stepsBar()+`<h2>Step 1 · Say it normally</h2>`+card+errBox()+
+        recBtn("original", S.original?"Record again":"Start Recording")+
+        playBtn("blue","playO","▶","Play Original",!S.original)+
+        playBtn("green","playOR","⏪","Play Reverse",!S.original)+
+        `<button class="btn small yellow" data-act="toMimic" ${S.original?'':'disabled'}>Next: copy the backwards sound →</button>`;
+    } else if(S.step===2){
+      body = stepsBar()+`<h2>Step 2 · Copy the backwards sound</h2>
+        <p class="sub">Listen to the reversed clip as many times as you like, then record yourself making that sound.</p>`+errBox()+
+        playBtn("green","playOR","⏪","Listen to Reverse",false)+
+        recBtn("mimic", S.mimic?"Record copy again":"Record your copy")+
+        playBtn("blue","playMR","🔁","Check it (flipped back)",!S.mimic)+
+        `<button class="btn small yellow" data-act="toGuess" ${S.mimic?'':'disabled'}>Ready — hand to teammate →</button>
+         <button class="link" data-act="back1">← Back to step 1</button>`;
+    } else if(S.step===3){
+      body = stepsBar()+`<h2>Step 3 · ${team()}, guess!</h2>
+        <p class="sub">This is the performer's copy flipped back the right way. What are they saying?</p>`+
+        playBtn("green","playMR","🔊","Play the clue",false)+
+        `<div class="row"><button class="btn small green" data-act="got">✅ Got it!</button><button class="btn small grey" data-act="miss">❌ Pass</button></div>
+         <button class="link" data-act="back2">← Performer wants another go</button>`;
+    } else if(S.step===4){
+      body = `<div class="card" style="text-align:center"><div class="big-emoji">${S.lastWin?'🎉':'😅'}</div>
+        <div class="cat">${esc(S.cat)}</div><div class="phrase">${esc(S.phrase)}</div>
+        <p class="sub">${S.lastWin?`+1 point to ${team()}!`:"No point this time."}</p></div>`+
+        playBtn("blue","playO","▶","Hear the original",false)+
+        playBtn("purple","playMR","🔁","Hear the guess clue again",false)+
+        `<button class="btn small yellow" data-act="next">Next team →</button>`;
+    }
+    a.innerHTML = header+scoreBar()+body;
+    return;
+  }
+
+  if(S.screen==="win"){
+    const w = S.scores[0]>S.scores[1]?0:1;
+    a.innerHTML = header+`<div class="card" style="text-align:center"><div class="big-emoji">🏆</div>
+      <h2>${esc(S.teams[w])} win!</h2><p class="sub">${S.scores[0]} – ${S.scores[1]}</p></div>
+      <button class="btn yellow" data-act="again">Play again</button>
+      <button class="link" data-act="menu">Back to setup</button>`;
+  }
+}
+
+/* ---------------- Events ---------------- */
+function micError(e){
+  if(e && (e.name==="NotAllowedError"||e.name==="SecurityError"))
+    S.error="🎙️ Microphone blocked. Allow microphone access for this page in your browser settings, then try again.";
+  else if(!navigator.mediaDevices||!window.MediaRecorder)
+    S.error="This browser can't record audio here. Open the page in Chrome or Safari over https (or from a file on your laptop).";
+  else S.error="Couldn't record: "+(e&&e.message||e);
+}
+
+async function toggleRec(slot){
+  stopPlay();
+  if(S.recording===slot){
+    S.recording=null; render();
+    try{
+      const buf = await stopRecording();
+      if(slot==="original"){ S.original=buf; S.originalRev=reverseBuffer(buf); }
+      else if(slot==="mimic"){ S.mimic=buf; S.mimicRev=reverseBuffer(buf); }
+      else { S.free.orig=buf; S.free.rev=reverseBuffer(buf); }
+    }catch(e){ S.error="That recording didn't work — try again."; }
+    render(); return;
+  }
+  if(S.recording) return;
+  S.error=null;
+  try{
+    await startRecording(t=>{ S.secs=t; const b=document.querySelector('[data-slot="'+slot+'"]'); if(b) b.lastChild.textContent=`Stop (${t.toFixed(1)}s)`; if(t>=20) toggleRec(slot); });
+    S.recording=slot; S.secs=0;
+  }catch(e){ micError(e); }
+  render();
+}
+
+function finishRound(win){
+  S.lastWin=win; if(win) S.scores[S.turn]++;
+  S.step=4; render();
+}
+
+document.addEventListener("click",e=>{
+  const el=e.target.closest("[data-act]"); if(!el) return;
+  const act=el.dataset.act;
+  if(S.recording && act!=="rec") return;
+  switch(act){
+    case "mode": stopPlay(); S.mode=el.dataset.m; S.error=null; break;
+    case "cat": { const c=el.dataset.c; if(S.cats.has(c)){ if(S.cats.size>1) S.cats.delete(c);} else S.cats.add(c); break; }
+    case "start":
+      S.teams=[$("t0").value.trim()||"Team 1",$("t1").value.trim()||"Team 2"];
+      S.target=+$("target").value; S.scores=[0,0]; S.turn=0; ctx(); newTurn(); break;
+    case "go": S.screen="play"; S.step=1; S.revealed=true; break;
+    case "show": S.revealed=true; break;
+    case "hide": S.revealed=false; break;
+    case "rec": toggleRec(el.dataset.slot); return;
+    case "playO": if(S.original) play(S.original); return;
+    case "playOR": if(S.originalRev) play(S.originalRev); return;
+    case "playMR": if(S.mimicRev) play(S.mimicRev); return;
+    case "playFreeO": if(S.free.orig) play(S.free.orig); return;
+    case "playFreeR": if(S.free.rev) play(S.free.rev); return;
+    case "toMimic": stopPlay(); S.step=2; S.revealed=false; break;
+    case "back1": stopPlay(); S.step=1; break;
+    case "toGuess": stopPlay(); S.step=3; break;
+    case "back2": stopPlay(); S.step=2; break;
+    case "got": stopPlay(); finishRound(true); return;
+    case "miss": stopPlay(); finishRound(false); return;
+    case "next":
+      stopPlay();
+      if(S.scores[S.turn]>=S.target){ S.screen="win"; break; }
+      S.turn=1-S.turn; newTurn(); break;
+    case "again": S.scores=[0,0]; S.turn=0; newTurn(); break;
+    case "menu": stopPlay(); S.screen="setup"; break;
+  }
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
