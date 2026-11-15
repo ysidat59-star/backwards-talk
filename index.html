@@ -251,7 +251,7 @@ function render(){
     let body="";
     const card = S.revealed
       ? `<div class="card"><div class="cat">${esc(S.cat)}</div><div class="phrase">${esc(S.phrase)}</div>
-         <button class="link" data-act="hide">Hide card</button></div>`
+         <div class="row" style="margin-top:6px"><button class="btn small grey" style="margin:0" data-act="skip">🔄 New card</button><button class="btn small grey" style="margin:0" data-act="hide">🙈 Hide card</button></div></div>`
       : `<div class="hidden-card" data-act="show">Tap to show the secret card</div>`;
 
     if(S.step===0 || S.step===1){
@@ -260,8 +260,7 @@ function render(){
         recBtn("original", S.original?"Record again":"Start Recording")+
         playBtn("blue","playO","▶","Play Original",!S.original)+
         playBtn("green","playOR","⏪","Play Reverse",!S.original)+slowChip()+
-        `<button class="btn small yellow" data-act="toMimic" ${S.original?'':'disabled'}>Next: copy the backwards sound →</button>
-         <button class="link" data-act="skip">Too hard? Skip this card</button>`;
+        `<button class="btn small yellow" data-act="toMimic" ${S.original?'':'disabled'}>Next: copy the backwards sound →</button>`;
     } else if(S.step===2){
       body = stepsBar()+`<h2>Step 2 · Copy the backwards sound</h2>
         <p class="sub">Listen to the reversed clip as many times as you like, then record yourself making that sound.</p>`+errBox()+
