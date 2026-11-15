@@ -43,8 +43,12 @@
   .steps{display:flex;gap:6px;justify-content:center;margin:4px 0 14px}
   .steps i{width:34px;height:6px;border-radius:3px;background:#3a3466}
   .steps i.on{background:var(--yellow)}
-  .score{display:flex;gap:10px;margin:8px 0}
-  .score div{flex:1;background:var(--card);border-radius:16px;padding:12px;text-align:center;border:3px solid transparent}
+  .score{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0}
+  .score.many b{font-size:24px} .score.many span{font-size:13px}
+  .name-row{display:flex;gap:8px;align-items:center}
+  .name-row input{flex:1}
+  .name-row button{border:0;background:#3a3466;color:#fff;border-radius:10px;width:44px;height:44px;font-size:18px;margin-bottom:6px}
+  .score div{flex:1;min-width:21%;background:var(--card);border-radius:16px;padding:12px;text-align:center;border:3px solid transparent}
   .score div.turn{border-color:var(--yellow)}
   .score b{display:block;font-size:30px}
   .score span{font-size:14px;color:var(--muted)}
@@ -127,7 +131,7 @@ function stopPlay(){ if(playing){ const p=playing; playing=null; try{p.stop()}ca
 /* ---------------- State ---------------- */
 const S = {
   mode:"game",
-  teams:["Team 1","Team 2"], scores:[0,0], turn:0, target:10,
+  teams:["Team 1","Team 2"], scores:[0,0], turn:0, target:10, solo:false, lastBy:null,
   cats:new Set(Object.keys(BANK)), used:new Set(),
   phrase:null, cat:null, revealed:false,
   step:0, // 0 card, 1 record original, 2 record mimic, 3 guess, 4 result
@@ -138,12 +142,13 @@ const S = {
 
 /* Remember teams, scores and settings if the page reloads */
 function save(){
-  try{ localStorage.setItem("bt-state", JSON.stringify({teams:S.teams,scores:S.scores,turn:S.turn,target:S.target,cats:[...S.cats],inGame:S.screen!=="setup"&&S.screen!=="win"})); }catch(e){}
+  try{ localStorage.setItem("bt-state", JSON.stringify({teams:S.teams,scores:S.scores,turn:S.turn,target:S.target,solo:S.solo,cats:[...S.cats],inGame:S.screen!=="setup"&&S.screen!=="win"})); }catch(e){}
 }
 function load(){
   try{
     const d = JSON.parse(localStorage.getItem("bt-state")||"null"); if(!d) return;
-    S.teams=d.teams; S.scores=d.scores; S.turn=d.turn; S.target=d.target;
+    S.teams=d.teams; S.target=d.target; S.solo=!!d.solo;
+    S.scores=S.teams.map((_,i)=>(d.scores&&d.scores[i])||0); S.turn=(d.turn||0)%S.teams.length;
     const cats=(d.cats||[]).filter(c=>BANK[c]); if(cats.length) S.cats=new Set(cats);
     if(d.inGame) newTurn();
   }catch(e){}
@@ -176,7 +181,7 @@ const esc = s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;
 const team = ()=>esc(S.teams[S.turn]);
 
 function scoreBar(){
-  return `<div class="score">${S.teams.map((t,i)=>`<div class="${i===S.turn?'turn':''}"><span>${esc(t)}</span><b>${S.scores[i]}</b></div>`).join("")}</div>`;
+  return `<div class="score ${S.teams.length>3?'many':''}">${S.teams.map((t,i)=>`<div class="${i===S.turn?'turn':''}"><span>${esc(t)}</span><b>${S.scores[i]}</b></div>`).join("")}</div>`;
 }
 function stepsBar(){
   return `<div class="steps">${[1,2,3].map(n=>`<i class="${S.step>=n?'on':''}"></i>`).join("")}</div>`;
@@ -211,8 +216,10 @@ function render(){
   if(S.screen==="setup"){
     a.innerHTML = header+tabs+`<p class="sub">Say it. Flip it. Copy it. Flip it back. Guess it!</p>
     <div class="card">
-      <label>Team names</label>
-      <div class="row"><input type="text" id="t0" value="${esc(S.teams[0])}"><input type="text" id="t1" value="${esc(S.teams[1])}"></div>
+      <div class="tabs" style="margin-top:0"><button class="${S.solo?'':'on'}" data-act="solo" data-v="0">Teams</button><button class="${S.solo?'on':''}" data-act="solo" data-v="1">Solo (everyone for themselves)</button></div>
+      <label>${S.solo?'Players':'Team names'}</label>
+      ${S.teams.map((t,i)=>`<div class="name-row"><input type="text" class="nm" value="${esc(t)}">${S.teams.length>2?`<button data-act="delName" data-i="${i}" aria-label="Remove">✕</button>`:''}</div>`).join("")}
+      ${S.teams.length<8?`<button class="link" data-act="addName" style="text-align:left;padding:4px 0 12px">+ Add ${S.solo?'player':'team'}</button>`:''}
       <label>First to</label>
       <select id="target">${[5,10,15,20].map(n=>`<option ${n===S.target?'selected':''}>${n}</option>`).join("")}</select>
       <label>Categories</label>
@@ -222,7 +229,7 @@ function render(){
       <b style="color:#fff">How to play</b><br>
       1. The performer secretly reads the card and records it normally.<br>
       2. Listen to it backwards, then record yourself copying the backwards sound.<br>
-      3. Your teammate hears your copy flipped back the right way round — and guesses!
+      3. ${S.solo?'Everyone else hears your copy flipped back the right way round and guesses. First to get it scores a point, and so does the performer!':'Your teammate hears your copy flipped back the right way round — and guesses!'}
     </div>
     <button class="btn yellow" data-act="start"><div class="ic">🎲</div>Start game</button>`;
     return;
@@ -232,7 +239,7 @@ function render(){
     a.innerHTML = header+scoreBar()+`<div class="card" style="text-align:center">
       <div class="big-emoji">🤫</div>
       <h2>${team()}'s turn</h2>
-      <p class="sub">Pick a performer. Only they look at the screen — teammates, look away!</p>
+      <p class="sub">${S.solo?`Pass the phone to ${team()}. Everyone else, look away!`:'Pick a performer. Only they look at the screen — teammates, look away!'}</p>
       </div>
       <button class="btn purple" data-act="go"><div class="ic">👀</div>I'm the performer</button>
       <button class="link" data-act="menu">Back to setup</button>`;
@@ -260,30 +267,36 @@ function render(){
         playBtn("green","playOR","⏪","Listen to Reverse",false)+slowChip()+
         recBtn("mimic", S.mimic?"Record copy again":"Record your copy")+
         playBtn("blue","playMR","🔁","Check it (flipped back)",!S.mimic)+
-        `<button class="btn small yellow" data-act="toGuess" ${S.mimic?'':'disabled'}>Ready — hand to teammate →</button>
+        `<button class="btn small yellow" data-act="toGuess" ${S.mimic?'':'disabled'}>${S.solo?'Ready — play it to everyone →':'Ready — hand to teammate →'}</button>
          <button class="link" data-act="back1">← Back to step 1</button>`;
     } else if(S.step===3){
-      body = stepsBar()+`<h2>Step 3 · ${team()}, guess!</h2>
-        <p class="sub">This is the performer's copy flipped back the right way. What are they saying?</p>`+
-        playBtn("green","playMR","🔊","Play the clue",false)+
-        `<div class="row"><button class="btn small green" data-act="got">✅ Got it!</button><button class="btn small grey" data-act="miss">❌ Pass</button></div>
-         <button class="link" data-act="back2">← Performer wants another go</button>`;
+      const guess = S.solo
+        ? `<p class="sub" style="margin:4px 0 0">Who got it first?</p><div class="chips" style="justify-content:center">${S.teams.map((t,i)=>i===S.turn?'':`<div class="chip" style="font-size:17px;padding:12px 16px" data-act="gotBy" data-p="${i}">✅ ${esc(t)}</div>`).join("")}</div>
+           <button class="btn small grey" data-act="miss">❌ Nobody got it</button>`
+        : `<div class="row"><button class="btn small green" data-act="got">✅ Got it!</button><button class="btn small grey" data-act="miss">❌ Pass</button></div>`;
+      body = stepsBar()+`<h2>Step 3 · ${S.solo?'Everyone':team()}, guess!</h2>
+        <p class="sub">This is ${S.solo?team()+"'s":"the performer's"} copy flipped back the right way. What are they saying?</p>`+
+        playBtn("green","playMR","🔊","Play the clue",false)+guess+
+        `<button class="link" data-act="back2">← Performer wants another go</button>`;
     } else if(S.step===4){
       body = `<div class="card" style="text-align:center"><div class="big-emoji">${S.lastWin?'🎉':'😅'}</div>
         <div class="cat">${esc(S.cat)}</div><div class="phrase">${esc(S.phrase)}</div>
-        <p class="sub">${S.lastWin?`+1 point to ${team()}!`:"No point this time."}</p></div>`+
+        <p class="sub">${!S.lastWin?"No point this time.":S.solo?`+1 to ${esc(S.teams[S.lastBy])} for guessing, +1 to ${team()} for performing!`:`+1 point to ${team()}!`}</p></div>`+
         playBtn("blue","playO","▶","Hear the original",false)+
         playBtn("purple","playMR","🔁","Hear the guess clue again",false)+
-        `<button class="btn small yellow" data-act="next">Next team →</button>`;
+        `<button class="btn small yellow" data-act="next">${S.solo?'Next player':'Next team'} →</button>`;
     }
     a.innerHTML = header+scoreBar()+body;
     return;
   }
 
   if(S.screen==="win"){
-    const w = S.scores[0]>S.scores[1]?0:1;
+    const top = Math.max(...S.scores);
+    const winners = S.teams.filter((_,i)=>S.scores[i]===top).map(esc);
+    const title = winners.length>1 ? `It's a tie: ${winners.join(" & ")}!` : `${winners[0]} ${S.solo?'wins':'win'}!`;
+    const table = S.teams.map((t,i)=>[t,S.scores[i]]).sort((x,y)=>y[1]-x[1]).map(([t,s])=>`${esc(t)}: ${s}`).join("<br>");
     a.innerHTML = header+`<div class="card" style="text-align:center"><div class="big-emoji">🏆</div>
-      <h2>${esc(S.teams[w])} win!</h2><p class="sub">${S.scores[0]} – ${S.scores[1]}</p></div>
+      <h2>${title}</h2><p class="sub">${table}</p></div>
       <button class="btn yellow" data-act="again">Play again</button>
       <button class="link" data-act="menu">Back to setup</button>`;
   }
@@ -319,8 +332,15 @@ async function toggleRec(slot){
   render();
 }
 
-function finishRound(win){
-  S.lastWin=win; if(win) S.scores[S.turn]++;
+function readNames(){
+  const inputs=[...document.querySelectorAll(".nm")]; if(!inputs.length) return;
+  const sel=$("target"); if(sel) S.target=+sel.value;
+  S.teams = inputs.map((x,i)=>x.value.trim()||`${S.solo?'Player':'Team'} ${i+1}`);
+}
+
+function finishRound(win, by){
+  S.lastWin=win; S.lastBy=by;
+  if(win){ S.scores[S.turn]++; if(S.solo && by!=null) S.scores[by]++; }
   S.step=4; render();
 }
 
@@ -328,12 +348,22 @@ document.addEventListener("click",e=>{
   const el=e.target.closest("[data-act]"); if(!el) return;
   const act=el.dataset.act;
   if(S.recording && act!=="rec") return;
+  if(S.screen==="setup" && S.mode==="game") readNames();
   switch(act){
     case "mode": stopPlay(); S.mode=el.dataset.m; S.error=null; break;
     case "cat": { const c=el.dataset.c; if(S.cats.has(c)){ if(S.cats.size>1) S.cats.delete(c);} else S.cats.add(c); break; }
+    case "solo": {
+      readNames(); const solo = el.dataset.v==="1"; if(solo===S.solo) break;
+      S.solo = solo;
+      const isDefault = S.teams.every(t=>/^(Team|Player) \d+$/.test(t));
+      if(isDefault) S.teams = solo ? ["Player 1","Player 2","Player 3","Player 4"] : ["Team 1","Team 2"];
+      break;
+    }
+    case "addName": readNames(); S.teams.push(`${S.solo?'Player':'Team'} ${S.teams.length+1}`); break;
+    case "delName": readNames(); S.teams.splice(+el.dataset.i,1); break;
     case "start":
-      S.teams=[$("t0").value.trim()||"Team 1",$("t1").value.trim()||"Team 2"];
-      S.target=+$("target").value; S.scores=[0,0]; S.turn=0; ctx(); newTurn(); break;
+      readNames();
+      S.target=+$("target").value; S.scores=S.teams.map(()=>0); S.turn=0; ctx(); newTurn(); break;
     case "go": S.screen="play"; S.step=1; S.revealed=true; break;
     case "show": S.revealed=true; break;
     case "hide": S.revealed=false; break;
@@ -350,12 +380,13 @@ document.addEventListener("click",e=>{
     case "toGuess": stopPlay(); S.step=3; break;
     case "back2": stopPlay(); S.step=2; break;
     case "got": stopPlay(); finishRound(true); return;
+    case "gotBy": stopPlay(); finishRound(true, +el.dataset.p); return;
     case "miss": stopPlay(); finishRound(false); return;
     case "next":
       stopPlay();
-      if(S.scores[S.turn]>=S.target){ S.screen="win"; break; }
-      S.turn=1-S.turn; newTurn(); break;
-    case "again": S.scores=[0,0]; S.turn=0; newTurn(); break;
+      if(Math.max(...S.scores)>=S.target){ S.screen="win"; break; }
+      S.turn=(S.turn+1)%S.teams.length; newTurn(); break;
+    case "again": S.scores=S.teams.map(()=>0); S.turn=0; newTurn(); break;
     case "menu": stopPlay(); S.screen="setup"; break;
   }
   if(S.screen!=="setup") keepAwake();
