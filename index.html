@@ -68,6 +68,7 @@ const BANK = {
   "Films & TV": ["Harry Potter","The Lion King","Star Wars","Toy Story","Finding Nemo","Jurassic Park","Frozen","Spider-Man","The Simpsons","Peaky Blinders","Only Fools and Horses","Love Island","EastEnders","Coronation Street","Doctor Who","Shrek","Titanic","Home Alone","Mean Girls","Stranger Things","The Office","Breaking Bad","Gavin and Stacey","Top Gear","Bake Off","Strictly Come Dancing","The Godfather","Mission Impossible","Fast and Furious","Pirates of the Caribbean"],
   "Food & Drink": ["Fish and chips","Spaghetti bolognese","Chicken tikka masala","Sunday roast","Full English breakfast","Cheese on toast","Beans on toast","Chocolate milkshake","Strawberry jam","Peanut butter","Pepperoni pizza","Chicken nuggets","Sticky toffee pudding","Bacon sandwich","Mashed potato","Ice cream sundae","Prawn cocktail crisps","Jaffa cakes","Mango lassi","Cup of tea"],
   "Animals": ["Elephant","Crocodile","Hippopotamus","Kangaroo","Giraffe","Penguin","Octopus","Chimpanzee","Rhinoceros","Flamingo","Hedgehog","Butterfly","Jellyfish","Polar bear","Golden retriever","Guinea pig","Peacock","Tarantula","Woodpecker","Killer whale"],
+  "Family & Home": ["Tidy your room","Who ate the last biscuit","Turn the telly down","Wash your hands","Where's the remote","Brush your teeth","I'm not tired","Five more minutes","Ask your mum","Stop hogging the bathroom","Dinner's ready","Have you done your homework","Shut the door","It wasn't me","I'm bored","Can I have some money","Close the fridge","Get off your phone","Who left the lights on","Go to sleep"],
   "Places": ["Blackburn","Manchester","London","Blackpool Tower","Big Ben","New York","Paris","Disneyland","Buckingham Palace","Old Trafford","Mount Everest","The Eiffel Tower","Australia","Las Vegas","Stonehenge","Lake District","Dubai","Hollywood","Amazon rainforest","Liverpool"]
 };
 
@@ -114,10 +115,10 @@ function reverseBuffer(b){
   }
   return out;
 }
-function play(buffer, onEnd){
+function play(buffer, onEnd, rate){
   stopPlay();
   const s = ctx().createBufferSource();
-  s.buffer = buffer; s.connect(ctx().destination);
+  s.buffer = buffer; s.playbackRate.value = rate||1; s.connect(ctx().destination);
   s.onended = ()=>{ if(playing===s){ playing=null; onEnd&&onEnd(); } };
   s.start(); playing = s;
 }
@@ -132,8 +133,28 @@ const S = {
   step:0, // 0 card, 1 record original, 2 record mimic, 3 guess, 4 result
   original:null, originalRev:null, mimic:null, mimicRev:null,
   recording:null, // which slot is recording
-  secs:0, error:null, screen:"setup", free:{orig:null,rev:null}
+  secs:0, error:null, screen:"setup", free:{orig:null,rev:null}, slow:false
 };
+
+/* Remember teams, scores and settings if the page reloads */
+function save(){
+  try{ localStorage.setItem("bt-state", JSON.stringify({teams:S.teams,scores:S.scores,turn:S.turn,target:S.target,cats:[...S.cats],inGame:S.screen!=="setup"&&S.screen!=="win"})); }catch(e){}
+}
+function load(){
+  try{
+    const d = JSON.parse(localStorage.getItem("bt-state")||"null"); if(!d) return;
+    S.teams=d.teams; S.scores=d.scores; S.turn=d.turn; S.target=d.target;
+    const cats=(d.cats||[]).filter(c=>BANK[c]); if(cats.length) S.cats=new Set(cats);
+    if(d.inGame) newTurn();
+  }catch(e){}
+}
+
+/* Keep the screen awake during a game */
+let wakeLock=null;
+async function keepAwake(){
+  try{ if("wakeLock" in navigator && !wakeLock){ wakeLock=await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release",()=>wakeLock=null); } }catch(e){}
+}
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible" && S.screen!=="setup") keepAwake(); });
 
 function pickPhrase(){
   const pool=[];
@@ -159,6 +180,9 @@ function scoreBar(){
 }
 function stepsBar(){
   return `<div class="steps">${[1,2,3].map(n=>`<i class="${S.step>=n?'on':''}"></i>`).join("")}</div>`;
+}
+function slowChip(){
+  return `<div class="chips" style="justify-content:center;margin-top:-4px"><div class="chip ${S.slow?'on':''}" data-act="slow">🐢 Slow-mo reverse ${S.slow?'on':'off'}</div></div>`;
 }
 function errBox(){ return S.error?`<div class="err">${S.error}</div>`:""; }
 
@@ -227,12 +251,13 @@ function render(){
       body = stepsBar()+`<h2>Step 1 · Say it normally</h2>`+card+errBox()+
         recBtn("original", S.original?"Record again":"Start Recording")+
         playBtn("blue","playO","▶","Play Original",!S.original)+
-        playBtn("green","playOR","⏪","Play Reverse",!S.original)+
-        `<button class="btn small yellow" data-act="toMimic" ${S.original?'':'disabled'}>Next: copy the backwards sound →</button>`;
+        playBtn("green","playOR","⏪","Play Reverse",!S.original)+slowChip()+
+        `<button class="btn small yellow" data-act="toMimic" ${S.original?'':'disabled'}>Next: copy the backwards sound →</button>
+         <button class="link" data-act="skip">Too hard? Skip this card</button>`;
     } else if(S.step===2){
       body = stepsBar()+`<h2>Step 2 · Copy the backwards sound</h2>
         <p class="sub">Listen to the reversed clip as many times as you like, then record yourself making that sound.</p>`+errBox()+
-        playBtn("green","playOR","⏪","Listen to Reverse",false)+
+        playBtn("green","playOR","⏪","Listen to Reverse",false)+slowChip()+
         recBtn("mimic", S.mimic?"Record copy again":"Record your copy")+
         playBtn("blue","playMR","🔁","Check it (flipped back)",!S.mimic)+
         `<button class="btn small yellow" data-act="toGuess" ${S.mimic?'':'disabled'}>Ready — hand to teammate →</button>
@@ -314,7 +339,9 @@ document.addEventListener("click",e=>{
     case "hide": S.revealed=false; break;
     case "rec": toggleRec(el.dataset.slot); return;
     case "playO": if(S.original) play(S.original); return;
-    case "playOR": if(S.originalRev) play(S.originalRev); return;
+    case "playOR": if(S.originalRev) play(S.originalRev, null, S.slow?0.75:1); return;
+    case "slow": S.slow=!S.slow; break;
+    case "skip": newTurn(); S.screen="play"; S.step=1; S.revealed=true; break;
     case "playMR": if(S.mimicRev) play(S.mimicRev); return;
     case "playFreeO": if(S.free.orig) play(S.free.orig); return;
     case "playFreeR": if(S.free.rev) play(S.free.rev); return;
@@ -331,9 +358,12 @@ document.addEventListener("click",e=>{
     case "again": S.scores=[0,0]; S.turn=0; newTurn(); break;
     case "menu": stopPlay(); S.screen="setup"; break;
   }
+  if(S.screen!=="setup") keepAwake();
+  save();
   render();
 });
 
+load();
 render();
 </script>
 </body>
